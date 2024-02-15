@@ -2,6 +2,7 @@ import React, { useEffect,useState,useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
+import { ExcelExportParams } from 'ag-grid-community'
 
 const CompanyLogoRenderer = ({ value }) => (
     <span
@@ -70,18 +71,27 @@ return new Date(params.value).toLocaleDateString('en-us', {
 });
 };
 
+
 const BasicGridExample = () => {
     const[rowData,setRowData] = useState([])
     const [gridApi, setGridApi] = useState(null);
+    const [gridColumnApi, setGridColumnApi] = useState(null);
+    const [searchText, setSearchText] = useState('');
     const [colDefs] = useState([
         {
-          field: 'mission',
-          checkboxSelection: true,
-          flex: 1,
+            field: 'mission',
+            checkboxSelection: true,
+            flex: 1,
+            enableRowGroup: true,
+            floatingFilterComponent: 'globalSearchFilterComponent', // Use custom floating filter component for global search
+            floatingFilterComponentParams: {
+              suppressFilterButton: true, // Hide the filter button in the floating filter
+            },
         },
         {
           field: 'company',
           cellRenderer: CompanyLogoRenderer,
+          enableRowGroup: true,
           flex: 1,
         },
         {
@@ -129,26 +139,66 @@ editable: true,
 
   const onGridReady = (params) => {
     setGridApi(params.api);
+    setGridColumnApi(params.columnApi);
   };
+
+  const onCellValueChanged = (event) => {
+    console.log('Row Data:', event.data); // Logging entire row data to console
+};
+
+
+useEffect(() => {
+    if (gridApi && gridColumnApi) {
+        gridApi.setGridOption('quickFilterText', searchText); // Updated usage to set quickFilterText
+    }
+}, [gridApi, gridColumnApi, searchText]);
+
+const exportToCsv = () => {
+  const params = {
+      skipHeader: false,
+      columnGroups: true,
+      skipFooters: true,
+      skipGroups: true,
+      skipPinnedTop: true,
+      skipPinnedBottom: true,
+      allColumns: true,
+      onlySelected: false,
+      suppressQuotes: false,
+      fileName: 'exported_data.csv',
+  };
+  gridApi.exportDataAsCsv(params);
+};
 
 
     return (
-        <div className="ag-theme-alpine" style={{height: '80vh', width: '100%' }}>
-            <h1>REACT GRID </h1>
+      <div className="ag-theme-alpine-dark" style={{ height: '80vh', width: '100%' }}>
+            <h1 style={{ color: 'red' }}>REACT GRID </h1>
+            <div style={{ marginBottom: '10px' }}>
+                <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                />
+                <button onClick={exportToCsv}>Export to CSV</button>
+            </div>
             <AgGridReact
                 rowData={rowData}
                 columnDefs={colDefs}
                 onGridReady={onGridReady}
                 defaultColDef={{
-                  filter: true,
-                  editable: true,
-                  flex: 1, // Allow columns to take up remaining space equally
+                    ...defaultColDef,
+                    flex: 1,
                 }}
-                pagination={true}
                 rowSelection="multiple"
-                onSelectionChanged={(event) => console.log('Row Selected!')}
-                onCellValueChanged={(event) => console.log(`New Cell Value: ${event.value}`)}>
-            </AgGridReact>
+                onCellValueChanged={onCellValueChanged}
+                suppressRowClickSelection
+                gridOptions={{
+                  sideBar: {
+                      toolPanels: ['columns'],
+                  },
+              }}
+            />
         </div>
     );
 }
